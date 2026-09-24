@@ -1,0 +1,28 @@
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+
+scrape_configs:
+  # Go Backend
+  - job_name: 'go-backend'
+    static_configs:
+      - targets: ['go-backend:8080']
+    metrics_path: /metrics
+
+  # Python NER Service
+  - job_name: 'python-ner'
+    static_configs:
+      - targets: ['python-ner:9000']
+    metrics_path: /metrics
+
+  # LLM Service
+  - job_name: 'llm-service'
+    static_configs:
+      - targets: ['llm-service:8080']
+    metrics_path: /metrics
+
+  # Rust ZK Service (metrics on HTTP port 9100, gRPC on 50053)
+  - job_name: 'rust-zk'
+    static_configs:
+      - targets: ['rust-zk:9100']
+    metrics_path: /metrics

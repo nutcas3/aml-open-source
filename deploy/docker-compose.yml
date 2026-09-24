@@ -1,0 +1,210 @@
+services:
+  # =============================================================================
+  # PostgreSQL Database
+  # =============================================================================
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: marble_trinity
+      POSTGRES_USER: marble_user
+      POSTGRES_PASSWORD: marble_password
+    ports:
+      - "5433:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./scripts/init-db.sql:/docker-entrypoint-initdb.d/init-db.sql:ro
+    networks:
+      - trinity-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U marble_user -d marble_trinity"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # =============================================================================
+  # Redis (NER caching + Go pub/sub)
+  # =============================================================================
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6380:6379"
+    networks:
+      - trinity-network
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # =============================================================================
+  # Ollama (local LLM for self-hosted SAR generation)
+  # =============================================================================
+  ollama:
+    image: ollama/ollama:latest
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama_models:/root/.ollama
+    networks:
+      - trinity-network
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:11434/api/tags || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+
+  # =============================================================================
+  # Go Backend (The Muscle)
+  # =============================================================================
+  go-backend:
+    build:
+      context: ../services/go-backend
+      dockerfile: Dockerfile
+    environment:
+      DATABASE_URL: postgres://marble_user:marble_password@postgres:5432/marble_trinity?sslmode=disable
+      REDIS_URL: redis://redis:6379
+      NER_ENDPOINT: http://python-ner:9000
+      LLM_ENDPOINT: http://llm-service:8080
+      ZK_ENDPOINT: rust-zk:50053
+      PORT: 8080
+    ports:
+      - "8080:8080"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      python-ner:
+        condition: service_healthy
+      llm-service:
+        condition: service_healthy
+      rust-zk:
+        condition: service_healthy
+    networks:
+      - trinity-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/api/v1/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # =============================================================================
+  # Python NER Service (The Brain)
+  # =============================================================================
+  python-ner:
+    build:
+      context: ../services/python-ner
+      dockerfile: Dockerfile
+    environment:
+      HOST: 0.0.0.0
+      PORT: 9000
+      REDIS_URL: redis://redis:6379
+      GLINER_MODEL: urchade/gliner_base
+      GLINER_CACHE_DIR: /app/models
+      GLINER_LABELS: Person,Company,Country,Illegal Activity
+    ports:
+      - "9000:9000"
+    depends_on:
+      redis:
+        condition: service_healthy
+    networks:
+      - trinity-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 60s
+    volumes:
+      - gliner_models:/app/models
+
+  # =============================================================================
+  # LLM Service (AI Investigator)
+  # =============================================================================
+  llm-service:
+    build:
+      context: ../services/llm-service
+      dockerfile: Dockerfile
+    environment:
+      HOST: 0.0.0.0
+      PORT: 8080
+      LLM_PROVIDER: ollama
+      OLLAMA_HOST: http://ollama:11434
+      OLLAMA_MODEL: llama3.2
+    ports:
+      - "8081:8080"
+    depends_on:
+      ollama:
+        condition: service_healthy
+    networks:
+      - trinity-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # =============================================================================
+  # Rust ZK Service (The Shield)
+  # =============================================================================
+  rust-zk:
+    build:
+      context: ..
+      dockerfile: services/rust-zk/Dockerfile
+    environment:
+      RUST_LOG: info
+    ports:
+      - "50053:50053"
+      - "9100:9100"
+    networks:
+      - trinity-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9100/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # =============================================================================
+  # Monitoring Stack
+  # =============================================================================
+  prometheus:
+    image: prom/prometheus:latest
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus_data:/prometheus
+    networks:
+      - trinity-network
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--web.console.libraries=/etc/prometheus/console_libraries'
+      - '--web.console.templates=/etc/prometheus/consoles'
+
+  grafana:
+    image: grafana/grafana:latest
+    ports:
+      - "3000:3000"
+    environment:
+      GF_SECURITY_ADMIN_PASSWORD: trinity2026
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./monitoring/grafana/dashboards:/etc/grafana/provisioning/dashboards:ro
+      - ./monitoring/grafana/datasources:/etc/grafana/provisioning/datasources:ro
+    networks:
+      - trinity-network
+    depends_on:
+      - prometheus
+
+networks:
+  trinity-network:
+    driver: bridge
+
+volumes:
+  postgres_data:
+  prometheus_data:
+  grafana_data:
+  gliner_models:
+  ollama_models:

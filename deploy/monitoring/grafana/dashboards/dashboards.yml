@@ -1,0 +1,11 @@
+apiVersion: 1
+
+providers:
+  - name: 'Trinity Guard Dashboards'
+    orgId: 1
+    folder: 'Trinity Guard'
+    type: file
+    disableDeletion: false
+    editable: true
+    options:
+      path: /etc/grafana/provisioning/dashboards

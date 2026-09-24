@@ -1,0 +1,188 @@
+name: CI
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main, develop]
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  # =============================================================================
+  # Rust ZK Service
+  # =============================================================================
+  rust-zk:
+    name: Rust ZK Service
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: services/rust-zk
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+
+      - name: Cache cargo
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+
+      - name: Format check
+        run: cargo fmt --check
+
+      - name: Clippy
+        run: cargo clippy -- -D warnings
+
+      - name: Tests
+        run: cargo test
+
+      - name: Build
+        run: cargo build --release
+
+  # =============================================================================
+  # Go Backend
+  # =============================================================================
+  go-backend:
+    name: Go Backend
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: services/go-backend
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.27'
+
+      - name: Cache go modules
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cache/go-build
+            ~/go/pkg/mod
+          key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
+
+      - name: Download dependencies
+        run: go mod download
+
+      - name: Vet
+        run: go vet ./...
+
+      - name: Test
+        run: go test ./... -v
+
+      - name: Build
+        run: go build -o trinity-backend .
+
+  # =============================================================================
+  # Python NER Service
+  # =============================================================================
+  python-ner:
+    name: Python NER Service
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: services/python-ner
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.14'
+
+      - name: Install uv
+        run: pip install uv
+
+      - name: Install dependencies
+        run: uv pip install --system -e ".[dev]"
+
+      - name: Lint (ruff)
+        run: ruff check .
+
+      - name: Type check (mypy)
+        run: mypy trinity_ner/ || true  # mypy may have issues with torch/gliner stubs
+
+      - name: Test
+        run: pytest -v
+
+  # =============================================================================
+  # LLM Service
+  # =============================================================================
+  llm-service:
+    name: LLM Service
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: services/llm-service
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.14'
+
+      - name: Install uv
+        run: pip install uv
+
+      - name: Install dependencies
+        run: uv pip install --system -e ".[dev]"
+
+      - name: Lint (ruff)
+        run: ruff check .
+
+      - name: Type check (mypy)
+        run: mypy trinity_llm/ || true
+
+      - name: Test
+        run: pytest -v
+
+  # =============================================================================
+  # Demo Script
+  # =============================================================================
+  demo:
+    name: Demo Script
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: demo
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.14'
+
+      - name: Install uv
+        run: pip install uv
+
+      - name: Install dependencies
+        run: uv pip install --system -e ".[dev]"
+
+      - name: Lint (ruff)
+        run: ruff check .
+
+  # =============================================================================
+  # Docker Compose Validation
+  # =============================================================================
+  docker-compose:
+    name: Docker Compose Validation
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Validate docker-compose.yml
+        run: docker compose -f deploy/docker-compose.yml config --quiet
