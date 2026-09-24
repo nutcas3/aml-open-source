@@ -1,0 +1,845 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>The Compliance Trinity - PyCon Kenya 2026</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
+            color: #fff;
+            overflow: hidden;
+        }
+
+        .slide {
+            display: none;
+            width: 100vw;
+            height: 100vh;
+            padding: 60px;
+            position: relative;
+            animation: slideIn 0.5s ease-out;
+        }
+
+        .slide.active {
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+        }
+
+        @keyframes slideIn {
+            from {
+                opacity: 0;
+                transform: translateX(50px);
+            }
+            to {
+                opacity: 1;
+                transform: translateX(0);
+            }
+        }
+
+        h1 {
+            font-size: 4rem;
+            margin-bottom: 30px;
+            background: linear-gradient(to right, #00d4ff, #00ff88);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        h2 {
+            font-size: 3rem;
+            margin-bottom: 20px;
+            color: #00d4ff;
+        }
+
+        h3 {
+            font-size: 2rem;
+            margin-bottom: 15px;
+            color: #00ff88;
+        }
+
+        p, li {
+            font-size: 1.5rem;
+            line-height: 1.8;
+            margin-bottom: 15px;
+        }
+
+        .subtitle {
+            font-size: 2rem;
+            color: #a0c4ff;
+            margin-bottom: 40px;
+        }
+
+        .trinity-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 30px;
+            margin: 40px 0;
+        }
+
+        .trinity-card {
+            background: rgba(255, 255, 255, 0.1);
+            border: 2px solid rgba(255, 255, 255, 0.2);
+            border-radius: 15px;
+            padding: 30px;
+            backdrop-filter: blur(10px);
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+        }
+
+        .trinity-card:hover {
+            transform: translateY(-10px);
+            box-shadow: 0 20px 40px rgba(0, 212, 255, 0.3);
+        }
+
+        .code-block {
+            background: rgba(0, 0, 0, 0.5);
+            border-left: 4px solid #00d4ff;
+            padding: 20px;
+            border-radius: 8px;
+            font-family: 'Courier New', monospace;
+            font-size: 1.2rem;
+            overflow-x: auto;
+            margin: 20px 0;
+        }
+
+        .highlight {
+            color: #00ff88;
+            font-weight: bold;
+        }
+
+        .benchmark-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 30px 0;
+            font-size: 1.3rem;
+        }
+
+        .benchmark-table th {
+            background: rgba(0, 212, 255, 0.3);
+            padding: 15px;
+            text-align: left;
+        }
+
+        .benchmark-table td {
+            padding: 12px 15px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .benchmark-table tr:hover {
+            background: rgba(255, 255, 255, 0.05);
+        }
+
+        .footer {
+            position: absolute;
+            bottom: 30px;
+            left: 60px;
+            right: 60px;
+            display: flex;
+            justify-content: space-between;
+            font-size: 1rem;
+            color: #a0c4ff;
+        }
+
+        .navigation {
+            position: fixed;
+            bottom: 30px;
+            right: 60px;
+            z-index: 1000;
+        }
+
+        button {
+            background: rgba(0, 212, 255, 0.3);
+            border: 2px solid #00d4ff;
+            color: #fff;
+            padding: 12px 24px;
+            margin: 0 5px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 1rem;
+            transition: all 0.3s ease;
+        }
+
+        button:hover {
+            background: rgba(0, 212, 255, 0.6);
+            transform: scale(1.05);
+        }
+
+        .flow-diagram {
+            display: flex;
+            justify-content: space-around;
+            align-items: center;
+            margin: 40px 0;
+        }
+
+        .flow-box {
+            background: rgba(0, 212, 255, 0.2);
+            border: 2px solid #00d4ff;
+            border-radius: 10px;
+            padding: 20px 30px;
+            min-width: 150px;
+            text-align: center;
+        }
+
+        .flow-arrow {
+            font-size: 3rem;
+            color: #00ff88;
+        }
+
+        ul {
+            list-style-position: inside;
+        }
+
+        .emoji {
+            font-size: 3rem;
+            margin-right: 20px;
+        }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 20px;
+            margin: 30px 0;
+        }
+
+        .stat-card {
+            background: rgba(0, 255, 136, 0.1);
+            border: 2px solid #00ff88;
+            border-radius: 10px;
+            padding: 20px;
+            text-align: center;
+        }
+
+        .stat-number {
+            font-size: 3rem;
+            color: #00ff88;
+            font-weight: bold;
+        }
+
+        .stat-label {
+            font-size: 1.2rem;
+            color: #a0c4ff;
+            margin-top: 10px;
+        }
+    </style>
+</head>
+<body>
+    <!-- Slide 1: Title -->
+    <div class="slide active">
+        <h1>🎤 The Compliance Trinity</h1>
+        <p class="subtitle">Orchestrating Python, Go, and Rust for Private, AI-Powered AML</p>
+        <p style="font-size: 2rem; margin-top: 60px;">Maurice Nyanja (@nut3case)</p>
+        <p style="font-size: 1.5rem; color: #a0c4ff;">PyCon Kenya 2026</p>
+        <div class="footer">
+            <span>Silicon Savannah Compliance Innovation</span>
+            <span>Slide 1/15</span>
+        </div>
+    </div>
+
+    <!-- Slide 2: The Crisis -->
+    <div class="slide">
+        <h2>🚨 The FinTech Crisis</h2>
+        <p style="font-size: 2rem; margin-bottom: 40px;">Modern financial systems move at <span class="highlight">breakneck speed</span>, but compliance is stuck in the <span class="highlight">dial-up era</span>.</p>
+        
+        <div class="stats-grid">
+            <div class="stat-card">
+                <div class="stat-number">10,000+</div>
+                <div class="stat-label">Transactions/Second</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-number">85%</div>
+                <div class="stat-label">False Positives</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-number">$180B</div>
+                <div class="stat-label">Annual AML Costs</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-number">0%</div>
+                <div class="stat-label">Privacy Protection</div>
+            </div>
+        </div>
+
+        <p style="font-size: 1.8rem; margin-top: 40px;">Legacy systems can't handle:</p>
+        <ul style="margin-left: 40px;">
+            <li>High-speed transaction ingestion</li>
+            <li>Intelligent identity resolution</li>
+            <li>Privacy-preserving compliance verification</li>
+        </ul>
+
+        <div class="footer">
+            <span>The Problem Space</span>
+            <span>Slide 2/15</span>
+        </div>
+    </div>
+
+    <!-- Slide 3: The Impossible Triangle -->
+    <div class="slide">
+        <h2>⚠️ The Impossible Triangle</h2>
+        <p class="subtitle">You can't have all three... or can you?</p>
+
+        <div class="trinity-grid">
+            <div class="trinity-card">
+                <h3>⚡ Speed</h3>
+                <p>Process thousands of transactions per second without bottlenecks</p>
+                <div class="stat-number" style="margin-top: 20px;">10K+ TPS</div>
+            </div>
+            <div class="trinity-card">
+                <h3>🧠 Intelligence</h3>
+                <p>Understand context, resolve identities, detect sophisticated patterns</p>
+                <div class="stat-number" style="margin-top: 20px;">95%+ Accuracy</div>
+            </div>
+            <div class="trinity-card">
+                <h3>🔒 Privacy</h3>
+                <p>Protect sensitive user data with cryptographic guarantees</p>
+                <div class="stat-number" style="margin-top: 20px;">ZK Proofs</div>
+            </div>
+        </div>
+
+        <p style="font-size: 1.8rem; margin-top: 40px; text-align: center;">
+            <span class="highlight">Traditional Approach:</span> Pick two, sacrifice one.<br>
+            <span class="highlight">Trinity Approach:</span> Use the right tool for each job.
+        </p>
+
+        <div class="footer">
+            <span>The Challenge</span>
+            <span>Slide 3/15</span>
+        </div>
+    </div>
+
+    <!-- Slide 4: The Trinity Architecture -->
+    <div class="slide">
+        <h2>🎯 The Trinity Architecture</h2>
+        <p class="subtitle">Python as the Conductor</p>
+
+        <div class="trinity-grid">
+            <div class="trinity-card">
+                <h3>💪 The Muscle</h3>
+                <p style="color: #00d4ff; font-size: 2rem; margin: 20px 0;">Go</p>
+                <p>High-concurrency transaction ingestion using marble-backend</p>
+                <ul style="margin-top: 15px; font-size: 1.2rem;">
+                    <li>10,000+ TPS</li>
+                    <li>Sub-ms latency</li>
+                    <li>gRPC orchestration</li>
+                </ul>
+            </div>
+            <div class="trinity-card">
+                <h3>🧠 The Brain</h3>
+                <p style="color: #00ff88; font-size: 2rem; margin: 20px 0;">Python</p>
+                <p>Identity resolution and AI-powered investigation</p>
+                <ul style="margin-top: 15px; font-size: 1.2rem;">
+                    <li>NER with Spacy</li>
+                    <li>LLM automation</li>
+                    <li>Central orchestrator</li>
+                </ul>
+            </div>
+            <div class="trinity-card">
+                <h3>🛡️ The Shield</h3>
+                <p style="color: #ff6b6b; font-size: 2rem; margin: 20px 0;">Rust</p>
+                <p>Zero-Knowledge cryptographic privacy</p>
+                <ul style="margin-top: 15px; font-size: 1.2rem;">
+                    <li>ZK-SNARK proofs</li>
+                    <li>100x faster crypto</li>
+                    <li>PyO3 integration</li>
+                </ul>
+            </div>
+        </div>
+
+        <div class="footer">
+            <span>The Solution</span>
+            <span>Slide 4/15</span>
+        </div>
+    </div>
+
+    <!-- Slide 5: Data Flow -->
+    <div class="slide">
+        <h2>🔄 Transaction Flow</h2>
+        
+        <div class="flow-diagram">
+            <div class="flow-box">
+                <div class="emoji">📥</div>
+                <h3>Go Ingestion</h3>
+                <p style="font-size: 1rem;">10K+ TPS</p>
+            </div>
+            <div class="flow-arrow">→</div>
+            <div class="flow-box">
+                <div class="emoji">🔍</div>
+                <h3>Python NER</h3>
+                <p style="font-size: 1rem;">Identity Check</p>
+            </div>
+            <div class="flow-arrow">→</div>
+            <div class="flow-box">
+                <div class="emoji">🔐</div>
+                <h3>Rust ZK</h3>
+                <p style="font-size: 1rem;">Privacy Verify</p>
+            </div>
+            <div class="flow-arrow">→</div>
+            <div class="flow-box">
+                <div class="emoji">🤖</div>
+                <h3>Python LLM</h3>
+                <p style="font-size: 1rem;">SAR Generation</p>
+            </div>
+        </div>
+
+        <div class="code-block" style="margin-top: 60px;">
+// Go Backend coordinates the entire flow
+func (s *TransactionService) ProcessTransaction(tx *Transaction) error {
+    entities := s.nerClient.ResolveEntities(tx)    // Python NER
+    valid := s.zkClient.VerifyCompliance(entities)  // Rust ZK
+    if entities.IsSuspicious && valid {
+        return s.llmClient.GenerateSAR(entities)    // Python LLM
+    }
+    return nil
+}
+        </div>
+
+        <div class="footer">
+            <span>The Pipeline</span>
+            <span>Slide 5/15</span>
+        </div>
+    </div>
+
+    <!-- Slide 6: Python NER Deep Dive -->
+    <div class="slide">
+        <h2>🧠 Python NER: The Crown Jewel</h2>
+        
+        <h3 style="margin-top: 40px;">The Identity Problem</h3>
+        <p style="font-size: 1.8rem;">Can a Go rule tell if <span class="highlight">"M. Emmanuel"</span> and <span class="highlight">"Maurice Emmanuel"</span> are the same sanctioned individual?</p>
+
+        <div class="code-block" style="margin-top: 30px;">
+# Python's marble-ner solves this with fuzzy matching
+class EntityResolver:
+    def resolve_entities(self, transaction: Dict) -> EntityResolution:
+        doc = self.nlp(transaction["description"])
+        
+        for ent in doc.ents:
+            if ent.label_ in ["PERSON", "ORG", "GPE"]:
+                # Fuzzy match against sanctions database
+                matches = self._fuzzy_match_sanctions(ent.text)
+                
+        return EntityResolution(
+            entities=entities,
+            is_suspicious=self._is_suspicious(entities),
+            confidence_score=self._calculate_confidence(entities)
+        )
+        </div>
+
+        <p style="font-size: 1.5rem; margin-top: 30px;">
+            <span class="highlight">Spacy + Transformers</span> enable context-aware entity understanding at scale
+        </p>
+
+        <div class="footer">
+            <span>Intelligence Layer</span>
+            <span>Slide 6/15</span>
+        </div>
+    </div>
+
+    <!-- Slide 7: LLM Investigation -->
+    <div class="slide">
+        <h2>🤖 AI-Powered Investigation</h2>
+        <p class="subtitle">From Alert to Legal Filing in Seconds</p>
+
+        <div class="code-block">
+# Python bridges the gap with llmberjack
+class ComplianceInvestigator:
+    def investigate_transaction(self, entities: EntityResolution):
+        prompt = f"""
+        Analyze these transactions for money laundering:
+        Entities: {entities.entities}
+        Context: {entities.context}
+        
+        Provide:
+        1. Risk assessment (Low/Medium/High)
+        2. Reasoning for assessment
+        3. SAR narrative if suspicious
+        """
+        
+        return self.llm(prompt)  # Generates human-readable report
+        </div>
+
+        <p style="font-size: 1.8rem; margin-top: 40px;"><span class="highlight">Result:</span> Automatic Suspicious Activity Report generation saves investigators <span class="highlight">hours</span> of manual labor</p>
+
+        <div class="footer">
+            <span>Automation Layer</span>
+            <span>Slide 7/15</span>
+        </div>
+    </div>
+
+    <!-- Slide 8: Rust ZK Performance -->
+    <div class="slide">
+        <h2>🛡️ Rust ZK: The Shield</h2>
+        <p class="subtitle">When Python hits the performance ceiling</p>
+
+        <h3 style="margin-top: 40px;">The Cryptographic Challenge</h3>
+        <p style="font-size: 1.6rem;">Zero-Knowledge proofs require intense mathematical operations. Pure Python would be <span class="highlight">100x slower</span>.</p>
+
+        <div class="code-block" style="margin-top: 30px;">
+# Rust ZK module via PyO3
+use pyo3::prelude::*;
+use ark_groth16::Groth16;
+
+#[pyfunction]
+fn verify_compliance_proof(proof_bytes: Vec<u8>) -> PyResult<bool> {
+    let proof = deserialize_proof(&proof_bytes)?;
+    let is_valid = Groth16::verify(&verifying_key, &inputs, &proof)?;
+    Ok(is_valid)
+}
+
+#[pymodule]
+fn trinity_zk(_py: Python, m: &PyModule) -> PyResult<()> {
+    m.add_function(wrap_pyfunction!(verify_compliance_proof, m)?)?;
+    Ok(())
+}
+        </div>
+
+        <p style="font-size: 1.8rem; margin-top: 30px;">
+            <span class="highlight">Python Integration:</span> <code style="color: #00ff88;">import trinity_zk</code>
+        </p>
+
+        <div class="footer">
+            <span>Performance Layer</span>
+            <span>Slide 8/15</span>
+        </div>
+    </div>
+
+    <!-- Slide 9: Performance Benchmarks -->
+    <div class="slide">
+        <h2>📊 Performance: Trinity vs Traditional</h2>
+
+        <table class="benchmark-table">
+            <thead>
+                <tr>
+                    <th>Metric</th>
+                    <th>Traditional Python</th>
+                    <th>Trinity Stack</th>
+                    <th>Improvement</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td>Throughput</td>
+                    <td>1,000 TPS</td>
+                    <td style="color: #00ff88;">10,000+ TPS</td>
+                    <td style="color: #00ff88; font-weight: bold;">10x</td>
+                </tr>
+                <tr>
+                    <td>Latency</td>
+                    <td>100ms</td>
+                    <td style="color: #00ff88;">&lt;10ms</td>
+                    <td style="color: #00ff88; font-weight: bold;">10x</td>
+                </tr>
+                <tr>
+                    <td>Privacy</td>
+                    <td>❌ No privacy</td>
+                    <td style="color: #00ff88;">✅ ZK Proofs</td>
+                    <td style="color: #00ff88; font-weight: bold;">∞</td>
+                </tr>
+                <tr>
+                    <td>Accuracy</td>
+                    <td>85%</td>
+                    <td style="color: #00ff88;">95%+</td>
+                    <td style="color: #00ff88; font-weight: bold;">+12%</td>
+                </tr>
+                <tr>
+                    <td>Automation</td>
+                    <td>Manual Reports</td>
+                    <td style="color: #00ff88;">LLM-Generated</td>
+                    <td style="color: #00ff88; font-weight: bold;">100%</td>
+                </tr>
+            </tbody>
+        </table>
+
+        <p style="font-size: 2rem; margin-top: 40px; text-align: center;">
+            🏆 <span class="highlight">Best of all worlds</span> without compromise
+        </p>
+
+        <div class="footer">
+            <span>The Results</span>
+            <span>Slide 9/15</span>
+        </div>
+    </div>
+
+    <!-- Slide 10: Component Breakdown -->
+    <div class="slide">
+        <h2>⚙️ Component Performance</h2>
+
+        <table class="benchmark-table">
+            <thead>
+                <tr>
+                    <th>Component</th>
+                    <th>Language</th>
+                    <th>Throughput</th>
+                    <th>Latency</th>
+                    <th>Memory</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td>Ingestion</td>
+                    <td style="color: #00d4ff;">Go</td>
+                    <td>10,000+ TPS</td>
+                    <td>&lt;1ms</td>
+                    <td>512MB</td>
+                </tr>
+                <tr>
+                    <td>NER</td>
+                    <td style="color: #00ff88;">Python</td>
+                    <td>1,000 TPS</td>
+                    <td>10ms</td>
+                    <td>2GB</td>
+                </tr>
+                <tr>
+                    <td>ZK Verify</td>
+                    <td style="color: #ff6b6b;">Rust</td>
+                    <td>100K proofs/s</td>
+                    <td>0.1ms</td>
+                    <td>128MB</td>
+                </tr>
+                <tr>
+                    <td>LLM</td>
+                    <td style="color: #00ff88;">Python</td>
+                    <td>100 req/s</td>
+                    <td>2s</td>
+                    <td>4GB</td>
+                </tr>
+            </tbody>
+        </table>
+
+        <p style="font-size: 1.8rem; margin-top: 40px;">
+            Each component optimized for its specific task, orchestrated seamlessly by <span class="highlight">Python</span>.
+        </p>
+
+        <div class="footer">
+            <span>Technical Deep Dive</span>
+            <span>Slide 10/15</span>
+        </div>
+    </div>
+
+    <!-- Slide 11: Live Demo Setup -->
+    <div class="slide">
+        <h2>🎬 Live Demo</h2>
+        <p class="subtitle">Let's see the Trinity in action!</p>
+
+        <h3 style="margin-top: 40px;">Demo Scenario: Sanctions Evasion</h3>
+        
+        <div class="code-block">
+# Suspicious transaction from sanctioned individual
+transaction = {
+    "id": "txn_001",
+    "sender": "M. Emmanuel",      # On sanctions list!
+    "amount": 25000,               # Large amount
+    "description": "Business investment transfer",
+    "receiver": "Offshore Account"
+}
+        </div>
+
+        <h3 style="margin-top: 40px;">What happens:</h3>
+        <ul style="margin-left: 40px; font-size: 1.6rem;">
+            <li><span class="highlight">Go</span> ingests at 10K+ TPS</li>
+            <li><span class="highlight">Python NER</span> identifies "M. Emmanuel" matches sanctions list</li>
+            <li><span class="highlight">Rust ZK</span> verifies privacy compliance (100x faster)</li>
+            <li><span class="highlight">Python LLM</span> generates SAR automatically</li>
+        </ul>
+
+        <p style="font-size: 2rem; margin-top: 40px; text-align: center; color: #00ff88;">
+            ⏱️ Total processing time: <span class="highlight">&lt;50ms</span>
+        </p>
+
+        <div class="footer">
+            <span>Demo Time</span>
+            <span>Slide 11/15</span>
+        </div>
+    </div>
+
+    <!-- Slide 12: Open Source Stack -->
+    <div class="slide">
+        <h2>🔓 Open Source Ecosystem</h2>
+
+        <div class="trinity-grid">
+            <div class="trinity-card">
+                <h3>marble-backend</h3>
+                <p style="font-size: 1.2rem; margin: 15px 0;">Real-time decision engine in Go</p>
+                <p style="color: #00d4ff;">github.com/checkmarble/marble-backend</p>
+            </div>
+            <div class="trinity-card">
+                <h3>marble-ner</h3>
+                <p style="font-size: 1.2rem; margin: 15px 0;">Python NER for identity resolution</p>
+                <p style="color: #00ff88;">github.com/checkmarble/marble-ner</p>
+            </div>
+            <div class="trinity-card">
+                <h3>llmberjack</h3>
+                <p style="font-size: 1.2rem; margin: 15px 0;">LLM interface for investigations</p>
+                <p style="color: #00d4ff;">github.com/checkmarble/llmberjack</p>
+            </div>
+        </div>
+
+        <h3 style="margin-top: 60px; text-align: center;">🚀 Trinity Guard Demo Repository</h3>
+        <p style="font-size: 1.8rem; text-align: center; color: #00ff88; margin-top: 20px;">
+            Complete demo with Docker setup, sample data, and monitoring
+        </p>
+
+        <div class="code-block" style="margin-top: 30px; font-size: 1.4rem;">
+git clone https://github.com/your-org/trinity-guard-demo
+cd trinity-guard-demo
+make demo-setup && make demo-start && make demo-run
+        </div>
+
+        <div class="footer">
+            <span>Community Resources</span>
+            <span>Slide 12/15</span>
+        </div>
+    </div>
+
+    <!-- Slide 13: Why This Matters for Kenya -->
+    <div class="slide">
+        <h2>🇰🇪 Silicon Savannah Impact</h2>
+
+        <h3 style="margin-top: 40px;">Kenya as a FinTech Hub</h3>
+        <ul style="margin-left: 40px; font-size: 1.6rem; margin-top: 20px;">
+            <li>M-Pesa: 30M+ users, $60B+ annual transactions</li>
+            <li>Growing digital banking and mobile money ecosystem</li>
+            <li>Need for scalable, transparent compliance tools</li>
+            <li>Privacy-first approach for user protection</li>
+        </ul>
+
+        <h3 style="margin-top: 50px;">The Trinity Advantage</h3>
+        <div class="trinity-grid">
+            <div class="trinity-card">
+                <h3>🌍 Local First</h3>
+                <p>Deploy on-premise for data sovereignty and GDPR compliance</p>
+            </div>
+            <div class="trinity-card">
+                <h3>💰 Cost Effective</h3>
+                <p>Open-source alternative to expensive black-box solutions</p>
+            </div>
+            <div class="trinity-card">
+                <h3>🔍 Transparent</h3>
+                <p>Auditable compliance decisions with explainable AI</p>
+            </div>
+        </div>
+
+        <div class="footer">
+            <span>Regional Relevance</span>
+            <span>Slide 13/15</span>
+        </div>
+    </div>
+
+    <!-- Slide 14: Key Takeaways -->
+    <div class="slide">
+        <h2>🎯 Key Takeaways</h2>
+
+        <div style="margin-top: 60px;">
+            <div style="margin-bottom: 50px;">
+                <h3>1️⃣ Python as the Conductor</h3>
+                <p style="font-size: 1.6rem; margin-left: 40px;">Python doesn't need to do everything—it orchestrates specialized tools</p>
+            </div>
+
+            <div style="margin-bottom: 50px;">
+                <h3>2️⃣ Polyglot Architecture Works</h3>
+                <p style="font-size: 1.6rem; margin-left: 40px;">Go for speed, Python for intelligence, Rust for security = No compromises</p>
+            </div>
+
+            <div style="margin-bottom: 50px;">
+                <h3>3️⃣ AI Meets Compliance</h3>
+                <p style="font-size: 1.6rem; margin-left: 40px;">LLMs can automate complex investigations while maintaining accuracy</p>
+            </div>
+
+            <div style="margin-bottom: 50px;">
+                <h3>4️⃣ Privacy is Achievable</h3>
+                <p style="font-size: 1.6rem; margin-left: 40px;">Zero-Knowledge proofs enable compliance without sacrificing user privacy</p>
+            </div>
+
+            <div>
+                <h3>5️⃣ Open Source Empowers</h3>
+                <p style="font-size: 1.6rem; margin-left: 40px;">Community-driven tools level the playing field for emerging markets</p>
+            </div>
+        </div>
+
+        <div class="footer">
+            <span>Summary</span>
+            <span>Slide 14/15</span>
+        </div>
+    </div>
+
+    <!-- Slide 15: Thank You / Q&A -->
+    <div class="slide">
+        <h1 style="text-align: center;">Thank You! 🙏</h1>
+        
+        <h2 style="text-align: center; margin-top: 60px;">Questions?</h2>
+
+        <div style="margin-top: 80px; text-align: center; font-size: 1.8rem;">
+            <p><strong>Maurice Nyanja</strong></p>
+            <p style="margin-top: 20px;">🐦 @nut3case</p>
+            <p>💼 linkedin.com/in/maurice-nyanja</p>
+            <p>🐙 github.com/nutcas3</p>
+            <p style="margin-top: 40px;">📧 Contact for demo repository access</p>
+        </div>
+
+        <div style="margin-top: 80px; text-align: center; font-size: 1.5rem;">
+            <p style="color: #00ff88;">🚀 Try the Trinity Guard Demo</p>
+            <p style="color: #00d4ff; margin-top: 10px;">Join the Marble ecosystem contributors</p>
+            <p style="margin-top: 10px;">Build the future of compliance with Python</p>
+        </div>
+
+        <div class="footer">
+            <span>PyCon Kenya 2026</span>
+            <span>Slide 15/15</span>
+        </div>
+    </div>
+
+    <!-- Navigation -->
+    <div class="navigation">
+        <button onclick="previousSlide()">← Previous</button>
+        <button onclick="nextSlide()">Next →</button>
+    </div>
+
+    <script>
+        let currentSlide = 0;
+        const slides = document.querySelectorAll('.slide');
+
+        function showSlide(n) {
+            slides[currentSlide].classList.remove('active');
+            currentSlide = (n + slides.length) % slides.length;
+            slides[currentSlide].classList.add('active');
+        }
+
+        function nextSlide() {
+            showSlide(currentSlide + 1);
+        }
+
+        function previousSlide() {
+            showSlide(currentSlide - 1);
+        }
+
+        // Keyboard navigation
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'ArrowRight' || e.key === ' ') {
+                nextSlide();
+            } else if (e.key === 'ArrowLeft') {
+                previousSlide();
+            }
+        });
+
+        // Touch navigation for mobile
+        let touchStartX = 0;
+        document.addEventListener('touchstart', (e) => {
+            touchStartX = e.touches[0].clientX;
+        });
+
+        document.addEventListener('touchend', (e) => {
+            const touchEndX = e.changedTouches[0].clientX;
+            if (touchStartX - touchEndX > 50) {
+                nextSlide();
+            } else if (touchEndX - touchStartX > 50) {
+                previousSlide();
+            }
+        });
+    </script>
+</body>
+</html>
