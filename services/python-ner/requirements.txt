@@ -1,0 +1,27 @@
+# Trinity Guard - Python NER Service Requirements
+# Install with: pip install -r requirements.txt
+# (pyproject.toml is the source of truth — this file mirrors it for pip users)
+
+# Web framework
+fastapi>=0.115.0
+uvicorn[standard]>=0.30.0
+pydantic>=2.9.0
+pydantic-settings>=2.5.0
+python-multipart>=0.0.6
+
+# GLINER (entity recognition)
+gliner>=0.1.0
+torch>=2.4.0
+transformers>=4.44.0
+numpy>=1.26.0
+scikit-learn>=1.5.0
+
+# Caching
+redis>=5.0.0
+
+# Observability
+prometheus-client>=0.20.0
+structlog>=24.4.0
+
+# HTTP client
+aiohttp>=3.10.0
