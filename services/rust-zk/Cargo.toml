@@ -1,0 +1,77 @@
+[package]
+name = "trinity-zk"
+version = "0.1.0"
+edition = "2021"
+authors = ["Maurice Nyanja <maurice@example.com>"]
+description = "Trinity Guard - High-performance Zero-Knowledge cryptography for AML"
+license = "MIT"
+
+[lib]
+name = "trinity_zk"
+crate-type = ["cdylib", "rlib"]
+
+[features]
+# Default build produces the `trinity-zk` gRPC binary with NO Python linkage,
+# so `cargo build` links cleanly. Enable `python` to build the PyO3 cdylib
+# (e.g. via `cargo build --release --features python --lib` or `maturin develop`).
+default = []
+python = ["pyo3"]
+
+[dependencies]
+# PyO3 for Python integration (optional — only built with the `python` feature).
+pyo3 = { version = "0.28.3", features = ["extension-module"], optional = true }
+
+# Zero-Knowledge cryptography — real arkworks Groth16 on Bn254
+ark-groth16 = "0.4"
+ark-bn254 = { version = "0.4", features = ["curve"] }
+ark-ff = "0.4"
+ark-ec = "0.4"
+ark-serialize = { version = "0.4", features = ["derive"] }
+ark-relations = "0.4"
+ark-crypto-primitives = { version = "0.4", features = ["sponge"] }
+ark-snark = "0.4"
+ark-std = { version = "0.4", features = ["std", "getrandom"] }
+
+# Hashing
+sha2 = "0.10"
+blake3 = "1.8"
+
+# Async runtime
+tokio = { version = "1.52", features = ["full"] }
+
+# HTTP server (for /metrics + /health endpoint alongside gRPC)
+axum = "0.8"
+
+# gRPC (for standalone service)
+tonic = "0.12"
+prost = "0.13"
+
+# Metrics
+prometheus = "0.13"
+
+# Serialization
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+
+# Logging
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+
+# Error handling
+anyhow = "1.0"
+thiserror = "2.0"
+
+[build-dependencies]
+tonic-build = "0.12"
+
+[dev-dependencies]
+proptest = "1.11"
+# Integration tests construct field elements and constraint systems directly.
+ark-bn254 = { version = "0.4", features = ["curve"] }
+ark-ff = "0.4"
+ark-relations = "0.4"
+
+[[bin]]
+name = "trinity-zk"
+path = "src/main.rs"
+required-features = []
