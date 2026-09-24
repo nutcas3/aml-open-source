@@ -1,76 +1,52 @@
 #!/bin/bash
 
-# Trinity Guard nutcas3 Demo Script
-# Designed for slides-tape presentation
+# Trinity Guard — slides-tape demo helper
+# Health-checks all services, then runs the live demo against the real stack.
+
+set -u
 
 echo "=== Trinity Guard Live Demo ==="
 echo "nutcas3 - Maurice Nyanja"
 echo ""
 
-# Navigate to the project directory
-cd "$(dirname "$0")/trinity-code-samples"
+# Service endpoints (external docker-compose ports)
+GO_URL="${GO_BACKEND_URL:-http://localhost:8080}"
+NER_URL="${NER_URL:-http://localhost:9000}"
+LLM_URL="${LLM_URL:-http://localhost:8081}"
+ZK_URL="${ZK_URL:-http://localhost:9100}"
 
-echo "1. Checking Python Services Status..."
+check() {
+    local name="$1" url="$2"
+    if curl -sf --max-time 3 "$url" > /dev/null 2>&1; then
+        echo "   $name: RUNNING"
+    else
+        echo "   $name: DOWN  ($url)"
+        return 1
+    fi
+}
+
+echo "1. Service Health"
+echo ""
+down=0
+check "Go backend   (:8080)" "$GO_URL/api/v1/health" || down=1
+check "Python NER   (:9000)" "$NER_URL/health"       || down=1
+check "Rust ZK      (:9100)" "$ZK_URL/health"        || down=1
+check "LLM service  (:8081)" "$LLM_URL/health"       || down=1
 echo ""
 
-# Check if services are running
-if curl -s http://localhost:9000/health > /dev/null 2>&1; then
-    echo "   Python NER Service: RUNNING"
-    curl -s http://localhost:9000/health | jq -r '.status' | sed 's/^/   Status: /'
-else
-    echo "   Python NER Service: Starting..."
-    cd python-ner
-    uv run uvicorn trinity_ner.ner_service:app --host 0.0.0.0 --port 9000 > /tmp/ner.log 2>&1 &
-    sleep 3
-    echo "   Python NER Service: STARTED"
+if [ "$down" -ne 0 ]; then
+    echo "   Some services are down. Start the stack with: make up"
+    exit 1
 fi
 
-if curl -s http://localhost:8080/health > /dev/null 2>&1; then
-    echo "   LLM Service: RUNNING"
-    curl -s http://localhost:8080/health | jq -r '.status' | sed 's/^/   Status: /'
-else
-    echo "   LLM Service: Starting..."
-    cd ../llm-service
-    uv run uvicorn trinity_llm.llm_service:app --host 0.0.0.0 --port 8080 > /tmp/llm.log 2>&1 &
-    sleep 3
-    echo "   LLM Service: STARTED"
-fi
+echo "2. Running Trinity pipeline demo..."
+echo ""
+cd "$(dirname "$0")/demo"
+uv run python -m trinity_demo.live_demo "$@"
 
 echo ""
-echo "2. Running Trinity Guard Demo..."
-echo ""
-
-# Run the demo script
-cd ../demo-scripts
-uv run python trinity_demo/live_demo.py --mode mock
-
-echo ""
-echo "3. Performance Metrics..."
-echo ""
-
-# Show some performance stats if services are running
-if curl -s http://localhost:9000/health > /dev/null 2>&1; then
-    echo "   NER Service Response Time:"
-    time curl -s http://localhost:9000/health > /dev/null
-fi
-
-if curl -s http://localhost:8080/health > /dev/null 2>&1; then
-    echo "   LLM Service Response Time:"
-    time curl -s http://localhost:8080/health > /dev/null
-fi
-
-echo ""
-echo "4. Trinity Stack Summary..."
-echo ""
-echo "   Go Backend: PostgreSQL + Firebase (1000+ TPS)"
-echo "   Python NER: GLINER + FastAPI (95% accuracy)"
-echo "   Rust ZK: Zero-Knowledge SNARKs (privacy-first)"
-echo "   Docker Compose: Production-ready deployment"
-echo ""
-echo "   Total Processing Time: <50ms"
-echo "   Privacy: Verifiable computation"
-echo "   Accuracy: AI-powered detection"
-
+echo "3. Metrics endpoints"
+echo "   Prometheus: http://localhost:9090"
+echo "   Grafana:    http://localhost:3000"
 echo ""
 echo "=== Demo Complete ==="
-echo "Thank you nutcas3!"
