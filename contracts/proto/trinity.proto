@@ -1,0 +1,87 @@
+syntax = "proto3";
+
+package trinity;
+
+option go_package = "github.com/trinity-guard/go-backend/internal/proto/trinity";
+
+// Trinity Guard gRPC service definitions
+// Used for inter-service communication: Go backend <-> Rust ZK
+
+// =============================================================================
+// ZK Compliance Service (Rust)
+// =============================================================================
+
+service ZKComplianceService {
+  // Verify a compliance proof without revealing private data
+  rpc VerifyComplianceProof(VerifyProofRequest) returns (VerifyProofResponse);
+
+  // Generate a ZK proof for private transaction data
+  rpc GenerateComplianceProof(GenerateProofRequest) returns (GenerateProofResponse);
+
+  // Compute a Poseidon hash (privacy-preserving audit trail)
+  rpc PoseidonHash(HashRequest) returns (HashResponse);
+
+  // Verify a Merkle proof for audit trail integrity
+  rpc VerifyMerkleProof(MerkleProofRequest) returns (MerkleProofResponse);
+
+  // Health check
+  rpc Health(HealthRequest) returns (HealthResponse);
+}
+
+// ---- Verify Compliance Proof ----
+
+message VerifyProofRequest {
+  bytes proof_bytes = 1;
+  bytes public_inputs = 2;
+}
+
+message VerifyProofResponse {
+  bool is_valid = 1;
+  string error = 2;
+}
+
+// ---- Generate Compliance Proof ----
+
+message GenerateProofRequest {
+  bytes private_data = 1;
+  bytes public_data = 2;
+}
+
+message GenerateProofResponse {
+  bytes proof_bytes = 1;
+  string error = 2;
+}
+
+// ---- Poseidon Hash ----
+
+message HashRequest {
+  bytes data = 1;
+}
+
+message HashResponse {
+  bytes hash = 1;
+  string error = 2;
+}
+
+// ---- Merkle Proof ----
+
+message MerkleProofRequest {
+  bytes leaf = 1;
+  repeated bytes proof = 2;
+  bytes root = 3;
+}
+
+message MerkleProofResponse {
+  bool is_valid = 1;
+  string error = 2;
+}
+
+// ---- Health ----
+
+message HealthRequest {}
+
+message HealthResponse {
+  string status = 1;
+  string version = 2;
+  bool circuit_loaded = 3;
+}

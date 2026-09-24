@@ -1,0 +1,445 @@
+openapi: 3.0.3
+
+info:
+  title: Trinity Guard API
+  description: |
+    REST API schemas for the Trinity Guard AML compliance system.
+
+    The Trinity is a polyglot architecture:
+    - **Go Backend** (The Muscle) — transaction processing orchestrator
+    - **Python NER** (The Brain) — entity resolution with GLINER
+    - **Rust ZK** (The Shield) — zero-knowledge cryptography via gRPC
+    - **LLM Service** (AI Investigator) — SAR generation via OpenAI/Ollama
+
+    Inter-service gRPC contracts are defined in contracts/proto/trinity.proto.
+  version: 1.0.0
+  contact:
+    name: Maurice Nyanja
+    url: https://github.com/nutcas3
+
+# =============================================================================
+# Go Backend Endpoints
+# =============================================================================
+
+paths:
+  /api/v1/transactions/process:
+    post:
+      tags: [Go Backend]
+      summary: Process a transaction through the Trinity pipeline
+      description: |
+        Orchestrates: Go validation -> Python NER -> Rust ZK verification -> LLM investigation.
+        Returns flagged status, entities, and SAR narrative if generated.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ProcessTransactionRequest'
+      responses:
+        '200':
+          description: Transaction processed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProcessTransactionResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /api/v1/statistics:
+    get:
+      tags: [Go Backend]
+      summary: Get performance metrics
+      responses:
+        '200':
+          description: Statistics
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Statistics'
+
+  /api/v1/health:
+    get:
+      tags: [Go Backend]
+      summary: Health check
+      responses:
+        '200':
+          description: Healthy
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthResponse'
+        '503':
+          description: Unhealthy
+
+  /metrics:
+    get:
+      tags: [Go Backend]
+      summary: Prometheus metrics
+      responses:
+        '200':
+          description: Prometheus format metrics
+
+# =============================================================================
+# Python NER Endpoints
+# =============================================================================
+
+  /detect:
+    post:
+      tags: [Python NER]
+      summary: Detect entities in text using GLINER
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DetectRequest'
+      responses:
+        '200':
+          description: Entities detected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetectResponse'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /analyze:
+    post:
+      tags: [Python NER]
+      summary: Analyze a transaction for compliance
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TransactionAnalysisRequest'
+      responses:
+        '200':
+          description: Analysis result
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TransactionAnalysisResponse'
+
+# =============================================================================
+# LLM Service Endpoints
+# =============================================================================
+
+  /chat:
+    post:
+      tags: [LLM Service]
+      summary: Chat with LLM (OpenAI or Ollama)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ChatRequest'
+      responses:
+        '200':
+          description: LLM response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ChatResponse'
+        '503':
+          description: LLM provider unavailable
+
+  /investigate:
+    post:
+      tags: [LLM Service]
+      summary: Investigate a transaction for compliance
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/InvestigationRequest'
+      responses:
+        '200':
+          description: Investigation result
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/InvestigationResponse'
+
+  /providers:
+    get:
+      tags: [LLM Service]
+      summary: List available LLM providers
+      responses:
+        '200':
+          description: Provider list
+
+# =============================================================================
+# Shared Health (all services)
+# =============================================================================
+
+  /health:
+    get:
+      tags: [Shared]
+      summary: Health check (available on all services)
+      responses:
+        '200':
+          description: Healthy
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthResponse'
+
+# =============================================================================
+# Components
+# =============================================================================
+
+components:
+  responses:
+    BadRequest:
+      description: Bad request
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    InternalError:
+      description: Internal server error
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+
+  schemas:
+    Error:
+      type: object
+      required: [error]
+      properties:
+        error:
+          type: string
+
+    # ---- Go Backend ----
+
+    ProcessTransactionRequest:
+      type: object
+      required: [transaction]
+      properties:
+        transaction:
+          $ref: '#/components/schemas/Transaction'
+
+    Transaction:
+      type: object
+      required: [id, amount, sender, receiver]
+      properties:
+        id:
+          type: string
+        amount:
+          type: number
+          format: double
+        currency:
+          type: string
+          default: USD
+        description:
+          type: string
+        sender:
+          type: string
+        receiver:
+          type: string
+        timestamp:
+          type: string
+          format: date-time
+        status:
+          type: string
+          default: pending
+        category:
+          type: string
+          default: transfer
+
+    ProcessTransactionResponse:
+      type: object
+      properties:
+        processed:
+          type: boolean
+        flagged:
+          type: boolean
+        reason:
+          type: string
+        sar_generated:
+          type: boolean
+        sar_narrative:
+          type: string
+        entities:
+          type: array
+          items:
+            $ref: '#/components/schemas/Entity'
+        zk_verified:
+          type: boolean
+        processing_time_ms:
+          type: number
+
+    Statistics:
+      type: object
+      properties:
+        total_transactions:
+          type: integer
+        flagged_transactions:
+          type: integer
+        avg_processing_time:
+          type: number
+        sars_generated:
+          type: integer
+
+    # ---- NER ----
+
+    DetectRequest:
+      type: object
+      required: [text]
+      properties:
+        text:
+          type: string
+        labels:
+          type: array
+          items:
+            type: string
+
+    DetectResponse:
+      type: object
+      properties:
+        entities:
+          type: array
+          items:
+            $ref: '#/components/schemas/Entity'
+
+    Entity:
+      type: object
+      properties:
+        type:
+          type: string
+          description: Entity label (Person, Company, Country, etc.)
+        text:
+          type: string
+          description: The matched text span
+        suspicious:
+          type: boolean
+          default: false
+        sanctions_matches:
+          type: array
+          items:
+            $ref: '#/components/schemas/SanctionMatch'
+
+    SanctionMatch:
+      type: object
+      properties:
+        sanction_id:
+          type: string
+        name:
+          type: string
+        matched_alias:
+          type: string
+        similarity:
+          type: number
+        risk_level:
+          type: string
+        match_type:
+          type: string
+          enum: [direct, alias]
+
+    TransactionAnalysisRequest:
+      type: object
+      properties:
+        id:
+          type: string
+        description:
+          type: string
+        sender:
+          type: string
+        receiver:
+          type: string
+        amount:
+          type: number
+        currency:
+          type: string
+
+    TransactionAnalysisResponse:
+      type: object
+      properties:
+        transaction_id:
+          type: string
+        entities:
+          type: array
+          items:
+            $ref: '#/components/schemas/Entity'
+        suspicious_count:
+          type: integer
+        is_suspicious:
+          type: boolean
+        risk_level:
+          type: string
+          enum: [LOW, MEDIUM, HIGH]
+
+    # ---- LLM ----
+
+    ChatRequest:
+      type: object
+      required: [text]
+      properties:
+        text:
+          type: string
+        thread:
+          type: string
+        provider:
+          type: string
+          enum: [openai, ollama]
+
+    ChatResponse:
+      type: object
+      properties:
+        response:
+          type: string
+        thread_id:
+          type: string
+        provider:
+          type: string
+
+    InvestigationRequest:
+      type: object
+      required: [transaction, entities]
+      properties:
+        transaction:
+          $ref: '#/components/schemas/Transaction'
+        entities:
+          type: array
+          items:
+            $ref: '#/components/schemas/Entity'
+        context:
+          type: string
+
+    InvestigationResponse:
+      type: object
+      properties:
+        risk_level:
+          type: string
+          enum: [Low, Medium, High]
+        requires_sar:
+          type: boolean
+        reasoning:
+          type: string
+        sar_narrative:
+          type: string
+        recommended_actions:
+          type: array
+          items:
+            type: string
+        thread_id:
+          type: string
+
+    # ---- Shared ----
+
+    HealthResponse:
+      type: object
+      properties:
+        status:
+          type: string
+        version:
+          type: string
+        details:
+          type: object
+          additionalProperties: true
