@@ -16,7 +16,8 @@ from __future__ import annotations
 import hashlib
 import json
 import time
-from typing import Any, List, Optional, Protocol
+from contextlib import asynccontextmanager
+from typing import Any, Protocol
 
 import redis.asyncio as aioredis
 import structlog
@@ -61,8 +62,8 @@ class GLiNERModel(Protocol):
     """Minimal protocol a GLINER-compatible model must satisfy."""
 
     def predict_entities(
-        self, text: str, labels: List[str], **kwargs: Any
-    ) -> List[dict]: ...
+        self, text: str, labels: list[str], **kwargs: Any
+    ) -> list[dict]: ...
 
 
 # ---------------------------------------------------------------------------
@@ -72,13 +73,13 @@ class GLiNERModel(Protocol):
 
 class DetectRequest(BaseModel):
     text: str
-    labels: Optional[List[str]] = None
+    labels: list[str] | None = None
 
 
 class SanctionMatch(BaseModel):
     sanction_id: str
     name: str
-    matched_alias: Optional[str] = None
+    matched_alias: str | None = None
     similarity: float
     risk_level: str
     match_type: str  # "direct" or "alias"
@@ -88,25 +89,25 @@ class Entity(BaseModel):
     type: str
     text: str
     suspicious: bool = False
-    sanctions_matches: List[SanctionMatch] = []
+    sanctions_matches: list[SanctionMatch] = []
 
 
 class DetectResponse(BaseModel):
-    entities: List[Entity]
+    entities: list[Entity]
 
 
 class TransactionAnalysisRequest(BaseModel):
-    id: Optional[str] = None
+    id: str | None = None
     description: str = ""
     sender: str = ""
     receiver: str = ""
-    amount: Optional[float] = None
+    amount: float | None = None
     currency: str = "USD"
 
 
 class TransactionAnalysisResponse(BaseModel):
-    transaction_id: Optional[str] = None
-    entities: List[Entity]
+    transaction_id: str | None = None
+    entities: list[Entity]
     suspicious_count: int
     is_suspicious: bool
     risk_level: str  # "LOW", "MEDIUM", "HIGH"
@@ -115,27 +116,27 @@ class TransactionAnalysisResponse(BaseModel):
 class MarbleNERService:
     """GLINER-backed NER service with sanctions matching and Redis caching."""
 
-    def __init__(self, model: Optional[GLiNERModel] = None) -> None:
+    def __init__(self, model: GLiNERModel | None = None) -> None:
         logger.info("ner_service.initializing")
 
         # GLINER model — required, no mock fallback.
         if model is not None:
             # Dependency-injected model (used by tests).
-            self.model: Optional[GLiNERModel] = model
+            self.model: GLiNERModel | None = model
             logger.info("ner_service.model_loaded", source="injected")
         else:
             self.model = self._load_gliner_model()
 
         # Default labels parsed from config.
-        self.default_labels: List[str] = [
+        self.default_labels: list[str] = [
             label.strip() for label in settings.gliner_labels.split(",") if label.strip()
         ]
 
         # In-memory sanctions database (always available).
-        self.sanctions_db: List[dict] = self._load_sanctions_database()
+        self.sanctions_db: list[dict] = self._load_sanctions_database()
 
         # Redis client (optional — degrades gracefully if unavailable).
-        self.redis: Optional[aioredis.Redis] = None
+        self.redis: aioredis.Redis | None = None
 
         logger.info(
             "ner_service.ready",
@@ -194,7 +195,7 @@ class MarbleNERService:
             self.redis = None
 
 
-    def _load_sanctions_database(self) -> List[dict]:
+    def _load_sanctions_database(self) -> list[dict]:
         """Load the in-memory sanctions list. Also tries Redis if available."""
         return [
             {
@@ -250,8 +251,8 @@ class MarbleNERService:
 
 
     async def detect_entities(
-        self, text: str, labels: Optional[List[str]] = None
-    ) -> List[Entity]:
+        self, text: str, labels: list[str] | None = None
+    ) -> list[Entity]:
         if labels is None:
             labels = self.default_labels
 
@@ -293,13 +294,13 @@ class MarbleNERService:
         )
         return enhanced
 
-    def _run_gliner(self, text: str, labels: List[str]) -> List[Entity]:
+    def _run_gliner(self, text: str, labels: list[str]) -> list[Entity]:
         """Run GLINER inference. Raises if the model is not loaded."""
         if self.model is None:
             raise RuntimeError("GLINER model is not loaded")
 
         results = self.model.predict_entities(text, labels)
-        entities: List[Entity] = []
+        entities: list[Entity] = []
         for result in results:
             entity = Entity(type=result["label"], text=result["text"])
             entities.append(entity)
@@ -311,7 +312,7 @@ class MarbleNERService:
         return entities
 
 
-    def _enhance_entities_with_sanctions(self, entities: List[Entity]) -> List[Entity]:
+    def _enhance_entities_with_sanctions(self, entities: list[Entity]) -> list[Entity]:
         """Set suspicious flag + populate sanctions_matches. Never mutates type."""
         for entity in entities:
             matches = self._match_sanctions(entity.text)
@@ -325,8 +326,8 @@ class MarbleNERService:
                 )
         return entities
 
-    def _match_sanctions(self, entity_text: str) -> List[SanctionMatch]:
-        matches: List[SanctionMatch] = []
+    def _match_sanctions(self, entity_text: str) -> list[SanctionMatch]:
+        matches: list[SanctionMatch] = []
         entity_lower = entity_text.lower()
 
         for sanction in self.sanctions_db:
@@ -376,13 +377,13 @@ class MarbleNERService:
         return intersection / union if union > 0 else 0.0
 
     @staticmethod
-    def _prediction_cache_key(text: str, labels: List[str]) -> str:
+    def _prediction_cache_key(text: str, labels: list[str]) -> str:
         digest = hashlib.sha256(
-            f"{text}|{','.join(labels)}".encode("utf-8")
+            f"{text}|{','.join(labels)}".encode()
         ).hexdigest()
         return f"trinity:ner:pred:{digest}"
 
-    async def _cache_get(self, key: str) -> Optional[Any]:
+    async def _cache_get(self, key: str) -> Any | None:
         if self.redis is None:
             return None
         try:
@@ -407,14 +408,31 @@ class MarbleNERService:
 # FastAPI application
 # ---------------------------------------------------------------------------
 
+# Service instance — initialized on startup so tests can override it.
+ner_service: MarbleNERService | None = None
+
+
+@asynccontextmanager
+async def _lifespan(app: FastAPI):
+    global ner_service
+    # Allow tests / external code to pre-inject a service instance.
+    if ner_service is None:
+        ner_service = MarbleNERService()
+        await ner_service.connect_redis()
+        await ner_service._load_sanctions_from_redis()
+    try:
+        yield
+    finally:
+        if ner_service is not None:
+            await ner_service.close_redis()
+
+
 app = FastAPI(
     title="Trinity Guard NER Service",
     description="GLINER-based entity recognition with sanctions matching — The Brain.",
     version="2.0.0",
+    lifespan=_lifespan,
 )
-
-# Service instance — initialized on startup so tests can override it.
-ner_service: Optional[MarbleNERService] = None
 
 
 def get_ner_service() -> MarbleNERService:
@@ -422,22 +440,6 @@ def get_ner_service() -> MarbleNERService:
     if ner_service is None:
         raise RuntimeError("NER service not initialized")
     return ner_service
-
-
-@app.on_event("startup")
-async def _startup() -> None:
-    global ner_service
-    # Allow tests / external code to pre-inject a service instance.
-    if ner_service is None:
-        ner_service = MarbleNERService()
-        await ner_service.connect_redis()
-        await ner_service._load_sanctions_from_redis()
-
-
-@app.on_event("shutdown")
-async def _shutdown() -> None:
-    if ner_service is not None:
-        await ner_service.close_redis()
 
 
 @app.get("/")
@@ -473,7 +475,7 @@ async def detect_entities(
         return DetectResponse(entities=entities)
     except Exception as exc:
         logger.error("ner_service.detect.failed", error=str(exc))
-        raise HTTPException(status_code=500, detail=str(exc))
+        raise HTTPException(status_code=500, detail=str(exc)) from exc
 
 
 @app.post("/analyze", response_model=TransactionAnalysisResponse)
@@ -505,7 +507,7 @@ async def analyze_transaction(
         )
     except Exception as exc:
         logger.error("ner_service.analyze.failed", error=str(exc))
-        raise HTTPException(status_code=500, detail=str(exc))
+        raise HTTPException(status_code=500, detail=str(exc)) from exc
 
 
 @app.get("/metrics")

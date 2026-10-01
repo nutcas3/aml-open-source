@@ -254,10 +254,14 @@ class TrinityDemo:
         print(f"\n  {Colors.CYAN}Multiple Transactions Detected:{Colors.END}")
         for tx in transactions:
             print(
-                f"     {Colors.CYAN}  {tx['id']}: ${tx['amount']:,} - {tx['description']}{Colors.END}"
+                f"     {Colors.CYAN}  {tx['id']}: ${tx['amount']:,} - "
+                f"{tx['description']}{Colors.END}"
             )
 
-        print(f"\n  {Colors.YELLOW}Pattern: Sub-$10K transactions (structuring/smurfing){Colors.END}")
+        print(
+            f"\n  {Colors.YELLOW}Pattern: Sub-$10K transactions "
+            f"(structuring/smurfing){Colors.END}"
+        )
         print(f"     Total Amount: ${sum(t['amount'] for t in transactions):,}")
 
         async with aiohttp.ClientSession() as session:
@@ -265,7 +269,7 @@ class TrinityDemo:
                 await self.process_single(session, tx)
 
         print(f"\n  {Colors.YELLOW}Risk Assessment: MEDIUM{Colors.END}")
-        print(f"     Recommendation: Enhanced monitoring")
+        print("     Recommendation: Enhanced monitoring")
 
     # ------------------------------------------------------------------
     # Scenario 3: High-Volume Processing

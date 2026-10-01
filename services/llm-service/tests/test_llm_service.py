@@ -22,7 +22,6 @@ from trinity_llm.llm_service import (
 )
 from trinity_llm.providers import ChatMessage, LLMResponse
 
-
 # ---------------------------------------------------------------------------
 # Fake provider — a test double implementing the LLMProvider protocol
 # ---------------------------------------------------------------------------

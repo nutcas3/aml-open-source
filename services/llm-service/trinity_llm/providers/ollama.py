@@ -14,7 +14,7 @@ import httpx
 import structlog
 
 from ..config import settings
-from .base import ChatMessage, LLMProvider, LLMResponse
+from .base import ChatMessage, LLMResponse
 
 logger = structlog.get_logger(__name__)
 

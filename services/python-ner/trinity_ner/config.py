@@ -5,11 +5,13 @@ All configuration is loaded from environment variables (12-factor app).
 Uses pydantic-settings for validation and type coercion.
 """
 
-from pydantic_settings import BaseSettings
+from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 class Settings(BaseSettings):
     """Service configuration loaded from environment / .env file."""
+
+    model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8")
 
     # Server
     host: str = "0.0.0.0"
@@ -22,10 +24,6 @@ class Settings(BaseSettings):
 
     # Redis (caching + sanctions lookups)
     redis_url: str = "redis://localhost:6379"
-
-    class Config:
-        env_file = ".env"
-        env_file_encoding = "utf-8"
 
 
 settings = Settings()

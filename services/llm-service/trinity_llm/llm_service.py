@@ -19,6 +19,7 @@ from __future__ import annotations
 import json
 import re
 import time
+from contextlib import asynccontextmanager
 from typing import Any
 
 import structlog
@@ -426,21 +427,12 @@ class TrinityLLMService:
 # FastAPI app
 # ---------------------------------------------------------------------------
 
-app = FastAPI(
-    title="Trinity LLM Service",
-    description=(
-        "Pluggable LLM service (OpenAI / Ollama) for Trinity Guard "
-        "compliance automation — investigation and SAR generation."
-    ),
-    version=VERSION,
-)
-
 # Initialise the service with the configured provider.
 llm_service = TrinityLLMService()
 
 
-@app.on_event("startup")
-async def _startup() -> None:
+@asynccontextmanager
+async def lifespan(app: FastAPI):
     """Validate the configured provider at startup."""
 
     provider_name = settings.llm_provider
@@ -463,6 +455,19 @@ async def _startup() -> None:
             )
         else:
             logger.info("ollama_healthy_at_startup", host=settings.ollama_host)
+
+    yield
+
+
+app = FastAPI(
+    title="Trinity LLM Service",
+    description=(
+        "Pluggable LLM service (OpenAI / Ollama) for Trinity Guard "
+        "compliance automation — investigation and SAR generation."
+    ),
+    version=VERSION,
+    lifespan=lifespan,
+)
 
 
 @app.get("/")

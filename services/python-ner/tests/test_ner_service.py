@@ -7,14 +7,13 @@ model injected via dependency injection — no real model is loaded.
 
 from __future__ import annotations
 
-from typing import Any, List
+from typing import Any
 
 import pytest
 from httpx import ASGITransport, AsyncClient
 
 from trinity_ner import ner_service as ner_module
 from trinity_ner.ner_service import MarbleNERService, app, get_ner_service
-
 
 # ---------------------------------------------------------------------------
 # Fake GLINER model (test double — dependency injection, not a mock fallback)
@@ -43,10 +42,10 @@ class FakeGLiNERModel:
     ]
 
     def predict_entities(
-        self, text: str, labels: List[str], **kwargs: Any
-    ) -> List[dict]:
+        self, text: str, labels: list[str], **kwargs: Any
+    ) -> list[dict]:
         text_lower = text.lower()
-        results: List[dict] = []
+        results: list[dict] = []
         for substring, label, entity_text in self.KNOWN_SPANS:
             if label not in labels:
                 continue

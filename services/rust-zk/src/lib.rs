@@ -144,9 +144,7 @@ impl ZKComplianceVerifier {
 
 /// Deserialize a witness buffer into (amount, sender_hash). Each field element
 /// is encoded as its little-endian big-integer byte representation, concatenated.
-pub fn deserialize_witness(
-    bytes: &[u8],
-) -> Result<(Fr, Fr), ark_serialize::SerializationError> {
+pub fn deserialize_witness(bytes: &[u8]) -> Result<(Fr, Fr), ark_serialize::SerializationError> {
     let field_size = (<Fr as PrimeField>::MODULUS_BIT_SIZE as usize).div_ceil(8);
     if bytes.len() != field_size * 2 {
         return Err(ark_serialize::SerializationError::InvalidData);
@@ -276,7 +274,6 @@ pub use python::trinity_zk;
 #[cfg(test)]
 mod tests {
     use super::*;
-    use ark_ff::BigInteger;
 
     #[test]
     fn test_zk_verifier_creation() {

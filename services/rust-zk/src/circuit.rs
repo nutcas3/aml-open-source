@@ -116,10 +116,7 @@ impl ComplianceCircuit {
 }
 
 impl ConstraintSynthesizer<Fr> for ComplianceCircuit {
-    fn generate_constraints(
-        self,
-        cs: ConstraintSystemRef<Fr>,
-    ) -> Result<(), SynthesisError> {
+    fn generate_constraints(self, cs: ConstraintSystemRef<Fr>) -> Result<(), SynthesisError> {
         // During trusted setup, arkworks calls generate_constraints with all
         // witnesses set to None. We substitute Fr::zero() as a placeholder so
         // the constraint topology can be determined without real values.
@@ -137,9 +134,7 @@ impl ConstraintSynthesizer<Fr> for ComplianceCircuit {
         // --- Constraint 1: amount < threshold (range check) -------------------
         // We prove `amount < threshold` by showing `threshold - amount` is a
         // positive value whose bit decomposition fits in AMOUNT_BITS bits.
-        let diff = cs.new_witness_variable(|| {
-            Ok(get(self.threshold) - get(self.amount))
-        })?;
+        let diff = cs.new_witness_variable(|| Ok(get(self.threshold) - get(self.amount)))?;
 
         // Enforce: threshold - amount - diff == 0
         // (a * b == c) form: a = (threshold - amount), b = 1, c = diff
@@ -186,9 +181,8 @@ impl ConstraintSynthesizer<Fr> for ComplianceCircuit {
         // We prove inequality by showing `sender_hash - sanctions_root` has an
         // inverse, i.e. is non-zero. If they were equal the difference would be
         // zero and the inverse would not exist.
-        let sender_minus_root = cs.new_witness_variable(|| {
-            Ok(get(self.sender_hash) - get(self.sanctions_root))
-        })?;
+        let sender_minus_root =
+            cs.new_witness_variable(|| Ok(get(self.sender_hash) - get(self.sanctions_root)))?;
 
         // sender_minus_root = sender_hash - sanctions_root
         cs.enforce_constraint(

@@ -23,12 +23,10 @@ mod proto {
     include!("proto/trinity.rs");
 }
 
-use proto::zk_compliance_service_server::{
-    ZkComplianceService, ZkComplianceServiceServer,
-};
+use proto::zk_compliance_service_server::{ZkComplianceService, ZkComplianceServiceServer};
 use proto::{
-    GenerateProofRequest, GenerateProofResponse, HashRequest, HashResponse,
-    HealthRequest, HealthResponse, MerkleProofRequest, MerkleProofResponse, VerifyProofRequest,
+    GenerateProofRequest, GenerateProofResponse, HashRequest, HashResponse, HealthRequest,
+    HealthResponse, MerkleProofRequest, MerkleProofResponse, VerifyProofRequest,
     VerifyProofResponse,
 };
 
@@ -94,9 +92,7 @@ impl Metrics {
         ] {
             registry.register(Box::new(m.clone())).unwrap();
         }
-        registry
-            .register(Box::new(grpc_requests.clone()))
-            .unwrap();
+        registry.register(Box::new(grpc_requests.clone())).unwrap();
 
         Self {
             registry,
@@ -218,10 +214,7 @@ impl ZkComplianceService for ZkService {
         }))
     }
 
-    async fn health(
-        &self,
-        _request: tonic::Request<HealthRequest>,
-    ) -> GrpcResult<HealthResponse> {
+    async fn health(&self, _request: tonic::Request<HealthRequest>) -> GrpcResult<HealthResponse> {
         self.metrics
             .grpc_requests
             .with_label_values(&["health"])
@@ -259,11 +252,7 @@ async fn metrics_handler(
 
 /// HTTP `/health` handler for Docker/Kubernetes liveness probes.
 async fn http_health() -> axum::response::Response {
-    (
-        axum::http::StatusCode::OK,
-        "OK: trinity-zk service healthy",
-    )
-        .into_response()
+    (axum::http::StatusCode::OK, "OK: trinity-zk service healthy").into_response()
 }
 
 #[tokio::main]
@@ -286,9 +275,10 @@ async fn main() -> Result<()> {
     info!("running real arkworks Groth16 / Bn254 trusted setup...");
 
     // Build the verifier (runs the trusted setup once).
-    let verifier = Arc::new(ZKComplianceVerifier::new().map_err(|e| {
-        anyhow::anyhow!("failed to initialize ZK verifier: {e}")
-    })?);
+    let verifier = Arc::new(
+        ZKComplianceVerifier::new()
+            .map_err(|e| anyhow::anyhow!("failed to initialize ZK verifier: {e}"))?,
+    );
     let metrics = Arc::new(Metrics::new());
 
     info!("ZK circuit keys ready; serving requests");
