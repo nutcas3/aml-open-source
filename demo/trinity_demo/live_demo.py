@@ -49,6 +49,13 @@ class TrinityDemo:
             "llm_service": os.getenv("LLM_URL", "http://localhost:8081"),
             "rust_zk": os.getenv("ZK_URL", "http://localhost:9100"),
         }
+        # Health paths match contracts/openapi.yaml per service.
+        self.health_paths = {
+            "go_backend": "/api/v1/health",
+            "python_ner": "/health",
+            "llm_service": "/health",
+            "rust_zk": "/health",
+        }
         self.args = args
         self.stats: dict[str, Any] = {
             "total_processed": 0,
@@ -109,7 +116,7 @@ class TrinityDemo:
 
             for service, url in self.base_urls.items():
                 try:
-                    health_url = f"{url}/health"
+                    health_url = f"{url}{self.health_paths[service]}"
                     async with session.get(
                         health_url, timeout=aiohttp.ClientTimeout(total=5)
                     ) as response:

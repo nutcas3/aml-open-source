@@ -251,8 +251,11 @@ async fn metrics_handler(
 }
 
 /// HTTP `/health` handler for Docker/Kubernetes liveness probes.
-async fn http_health() -> axum::response::Response {
-    (axum::http::StatusCode::OK, "OK: trinity-zk service healthy").into_response()
+async fn http_health() -> axum::Json<serde_json::Value> {
+    axum::Json(serde_json::json!({
+        "status": "healthy",
+        "service": "trinity-zk",
+    }))
 }
 
 #[tokio::main]
