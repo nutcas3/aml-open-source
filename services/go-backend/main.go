@@ -17,6 +17,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"log/slog"
+	"math"
+	"math/big"
 	"net/http"
 	"os"
 	"strings"
@@ -406,38 +408,87 @@ Provide a risk assessment and SAR narrative if suspicious.`,
 	return llmResp.Response, nil
 }
 
-// verifyWithZK calls the Rust ZK compliance service over gRPC. A short timeout
-// is used so ZK downtime never blocks the pipeline. Errors are non-fatal.
+const (
+	// zkFieldBytes is the byte width of a Bn254 field element (254 bits
+	// rounded up to 32 bytes), matching arkworks' canonical LE encoding.
+	zkFieldBytes = 32
+	// zkThresholdCents is the public compliance threshold — $10,000 in cents.
+	// The circuit proves amount < threshold without revealing the amount.
+	zkThresholdCents uint64 = 1_000_000
+)
+
+// zkSanctionsSetID is the domain separator hashed with Poseidon to derive the
+// public sanctions-set root the circuit compares the sender hash against.
+var zkSanctionsSetID = []byte("TRINITY_SANCTIONS_SET_V1")
+
+// fieldLE encodes v as a 32-byte little-endian Bn254 field element.
+func fieldLE(v uint64) []byte {
+	b := make([]byte, zkFieldBytes)
+	be := new(big.Int).SetUint64(v).Bytes()
+	for i, x := range be {
+		b[len(be)-1-i] = x
+	}
+	return b
+}
+
+// verifyWithZK runs the real ZK pipeline over gRPC: Poseidon-hash the sender,
+// generate a Groth16 compliance proof from the private witness, then verify it.
+// Errors are non-fatal so ZK downtime never blocks the pipeline.
 func (s *TransactionService) verifyWithZK(ctx context.Context, tx MarbleTransaction, entities []NEREntity) (bool, error) {
 	if s.zk == nil {
 		return false, nil
 	}
 
-	publicInputs, err := json.Marshal(map[string]any{
-		"transaction_id":      tx.ID,
-		"amount":              tx.Amount,
-		"currency":            tx.Currency,
-		"sender":              tx.Sender,
-		"receiver":            tx.Receiver,
-		"suspicious_entities": entities,
-	})
-	if err != nil {
-		return false, fmt.Errorf("marshal public inputs: %w", err)
-	}
-
-	zkCtx, cancel := context.WithTimeout(ctx, 3*time.Second)
+	zkCtx, cancel := context.WithTimeout(ctx, 15*time.Second)
 	defer cancel()
 
-	resp, err := s.zk.VerifyComplianceProof(zkCtx, &VerifyProofRequest{
-		PublicInputs: publicInputs,
+	senderResp, err := s.zk.PoseidonHash(zkCtx, &HashRequest{Data: []byte(tx.Sender)})
+	if err != nil {
+		return false, fmt.Errorf("poseidon sender hash: %w", err)
+	}
+	if senderResp.Error != "" {
+		return false, fmt.Errorf("poseidon sender hash: %s", senderResp.Error)
+	}
+	rootResp, err := s.zk.PoseidonHash(zkCtx, &HashRequest{Data: zkSanctionsSetID})
+	if err != nil {
+		return false, fmt.Errorf("poseidon sanctions root: %w", err)
+	}
+	if rootResp.Error != "" {
+		return false, fmt.Errorf("poseidon sanctions root: %s", rootResp.Error)
+	}
+	if len(senderResp.Hash) != zkFieldBytes || len(rootResp.Hash) != zkFieldBytes {
+		return false, fmt.Errorf("unexpected poseidon digest sizes: sender=%d root=%d",
+			len(senderResp.Hash), len(rootResp.Hash))
+	}
+
+	// private witness: amount (LE field elem, in cents) || sender_hash
+	amountCents := uint64(math.Max(0, math.Round(tx.Amount*100)))
+	privateData := append(fieldLE(amountCents), senderResp.Hash...)
+	// public inputs: threshold || sanctions_root
+	publicData := append(fieldLE(zkThresholdCents), rootResp.Hash...)
+
+	genResp, err := s.zk.GenerateComplianceProof(zkCtx, &GenerateProofRequest{
+		PrivateData: privateData,
+		PublicData:  publicData,
 	})
 	if err != nil {
-		return false, err
+		return false, fmt.Errorf("generate proof: %w", err)
 	}
-	if resp.Error != "" {
-		return false, fmt.Errorf("zk service error: %s", resp.Error)
+	if genResp.Error != "" {
+		return false, fmt.Errorf("generate proof: %s", genResp.Error)
 	}
-	return resp.IsValid, nil
+
+	verResp, err := s.zk.VerifyComplianceProof(zkCtx, &VerifyProofRequest{
+		ProofBytes:   genResp.ProofBytes,
+		PublicInputs: publicData,
+	})
+	if err != nil {
+		return false, fmt.Errorf("verify proof: %w", err)
+	}
+	if verResp.Error != "" {
+		return false, fmt.Errorf("zk service error: %s", verResp.Error)
+	}
+	return verResp.IsValid, nil
 }
 
 // isSuspicious reports whether any NER entity was flagged suspicious by the

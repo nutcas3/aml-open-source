@@ -360,3 +360,5 @@ ollama_models/
 
 # Compiled binaries
 services/go-backend/go-backend
+models-cache/
+services/go-backend/trinity-backend
