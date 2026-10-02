@@ -21,7 +21,7 @@ import asyncio
 import os
 import random
 import time
-from datetime import datetime
+from datetime import UTC, datetime
 from typing import Any
 
 import aiohttp
@@ -201,9 +201,9 @@ class TrinityDemo:
             "id": "trinity_demo_001",
             "sender": "M. Emmanuel",
             "receiver": "Offshore Account Ltd.",
-            "amount": 25000,
+            "amount": 8500,
             "description": "Business investment transfer",
-            "timestamp": datetime.now().isoformat(),
+            "timestamp": datetime.now(UTC).isoformat(),
             "currency": "USD",
             "status": "pending",
             "category": "transfer",
@@ -229,7 +229,7 @@ class TrinityDemo:
                 "description": "Transfer to family",
                 "sender": "John Doe",
                 "receiver": "Various Recipients",
-                "timestamp": datetime.now().isoformat(),
+                "timestamp": datetime.now(UTC).isoformat(),
                 "currency": "USD",
                 "status": "pending",
                 "category": "transfer",
@@ -240,7 +240,7 @@ class TrinityDemo:
                 "description": "Payment for services",
                 "sender": "John Doe",
                 "receiver": "Various Recipients",
-                "timestamp": datetime.now().isoformat(),
+                "timestamp": datetime.now(UTC).isoformat(),
                 "currency": "USD",
                 "status": "pending",
                 "category": "transfer",
@@ -251,7 +251,7 @@ class TrinityDemo:
                 "description": "Business expense",
                 "sender": "John Doe",
                 "receiver": "Various Recipients",
-                "timestamp": datetime.now().isoformat(),
+                "timestamp": datetime.now(UTC).isoformat(),
                 "currency": "USD",
                 "status": "pending",
                 "category": "transfer",
@@ -301,7 +301,7 @@ class TrinityDemo:
                         "receiver": f"Recipient_{i}",
                         "amount": random.randint(100, 5000),
                         "description": f"Transaction {i}",
-                        "timestamp": datetime.now().isoformat(),
+                        "timestamp": datetime.now(UTC).isoformat(),
                         "currency": "USD",
                         "status": "pending",
                         "category": "transfer",
@@ -400,10 +400,12 @@ class TrinityDemo:
                     f"({entity.get('type', '?')}){marker}{Colors.END}"
                 )
 
-        if result.get("zk_verified") is not None:
+        if result.get("flagged"):
             print(f"\n  {Colors.RED}Rust ZK (The Shield)...{Colors.END}")
-            zk_status = "verified" if result.get("zk_verified") else "skipped"
-            print(f"     {Colors.GREEN}ZK proof {zk_status}{Colors.END}")
+            if result.get("zk_verified"):
+                print(f"     {Colors.GREEN}ZK proof verified (Groth16/Bn254){Colors.END}")
+            else:
+                print(f"     {Colors.RED}ZK proof rejected (non-compliant){Colors.END}")
 
         if result.get("sar_generated"):
             print(f"\n  {Colors.MAGENTA}LLM Service (AI Investigator)...{Colors.END}")
